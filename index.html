@@ -122,6 +122,15 @@
 const form = document.getElementById('predict-form');
 const resultBox = document.getElementById('result');
 
+// When the page is served over http (locally or on Vercel) the API is on the
+// same origin, so a relative path is correct. When the file is opened directly
+// the origin is "null" and a relative path would resolve to file:///api/predict,
+// which is not a server - so point at the local dev server instead.
+const OPENED_AS_FILE = location.protocol === 'file:';
+const API_URL = OPENED_AS_FILE
+  ? 'http://127.0.0.1:5000/api/predict'
+  : '/api/predict';
+
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = form.querySelector('button');
@@ -134,7 +143,7 @@ form.addEventListener('submit', async (e) => {
   });
 
   try {
-    const res = await fetch('/api/predict', {
+    const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -147,7 +156,18 @@ form.addEventListener('submit', async (e) => {
     resultBox.innerHTML = `Predicted Price<br><span class="price">₹${json.predicted_price.toLocaleString()}</span>`;
   } catch (err) {
     resultBox.className = 'err';
-    resultBox.textContent = err.message;
+    // fetch() throws TypeError when the request never reached a server at all.
+    // "Failed to fetch" says nothing useful, so explain what to actually do.
+    if (err instanceof TypeError) {
+      resultBox.innerHTML = OPENED_AS_FILE
+        ? 'Could not reach the API at <code>http://127.0.0.1:5000</code>.<br>' +
+          'Start it first: <code>python api/predict.py</code>'
+        : 'Could not reach <code>/api/predict</code> on this origin.<br>' +
+          'If running locally, start the server with <code>python api/predict.py</code> ' +
+          'and open <code>http://127.0.0.1:5000</code>.';
+    } else {
+      resultBox.textContent = err.message;
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = 'Predict Price';

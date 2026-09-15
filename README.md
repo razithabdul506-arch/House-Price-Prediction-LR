@@ -39,12 +39,12 @@ python api/predict.py          # serves the form AND the API on :5000
 
 Then open **http://127.0.0.1:5000** in your browser.
 
-Do not open `index.html` by double-clicking it. The page would load over
-`file://`, where its `fetch('/api/predict')` resolves to
-`file:///api/predict` — there is no server at that address, so the browser
-blocks the request and the form reports **"Failed to fetch"**. Loading the
-page from `http://127.0.0.1:5000` puts it on the same origin as the API,
-which is what the form expects.
+You can also just double-click `index.html` — the page detects that it was
+opened over `file://` and calls `http://127.0.0.1:5000/api/predict` directly
+instead of using a relative path (which would resolve to
+`file:///api/predict`, where no server exists). The API sends permissive CORS
+headers so that cross-origin call is allowed. Either way the server must be
+running first, or the form will tell you to start it.
 
 To test the API on its own:
 

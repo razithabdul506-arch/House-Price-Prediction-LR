@@ -87,8 +87,25 @@ def index():
     return send_from_directory(PROJECT_ROOT, "index.html")
 
 
-@app.route("/api/predict", methods=["POST"])
+@app.after_request
+def allow_cross_origin(response):
+    """Let a directly-opened index.html (origin "null") call this endpoint.
+
+    The endpoint is public and reads nothing but the numbers in the request
+    body, so there is no session or credential for a wildcard origin to leak.
+    """
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    return response
+
+
+@app.route("/api/predict", methods=["POST", "OPTIONS"])
 def predict():
+    # A JSON content-type makes the browser preflight; answer it and stop.
+    if request.method == "OPTIONS":
+        return ("", 204)
+
     payload = request.get_json(silent=True) or {}
 
     missing = [f for f in REQUIRED_FIELDS if f not in payload]
