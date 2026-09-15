@@ -5,19 +5,24 @@ predicts a house price from its features.
 
 **Open `index.html` in a browser. That's it — no server, no install.**
 
+`index.html` is entirely self-contained: one file, no other files needed, no
+network access. You can email it to yourself and it will still work.
+
 ## How it works
 
 `train_model.py` trains the model with scikit-learn and writes three things:
 
-| File | Used by | Purpose |
+| Output | Used by | Purpose |
 |---|---|---|
-| `model.js` | `index.html` | The fitted coefficients + intercept, as JSON |
+| the `MODEL` block inside `index.html` | the page itself | The fitted coefficients + intercept |
 | `server/model.pkl` | `server/predict.py` | The pickled model, for the JSON API |
 | `server/columns.json` | `server/predict.py` | The one-hot column order the model expects |
 
 A linear regression is just `coefficients · features + intercept`, so the
-browser can evaluate it directly from `model.js` — the arithmetic is a dot
-product, not something that needs Python at runtime. `index.html` rebuilds
+browser can evaluate it directly from the coefficients written into the page —
+the arithmetic is a dot product, not something that needs Python at runtime.
+They live inline, between the `MODEL_START` / `MODEL_END` markers, so
+`index.html` is a single self-contained file with nothing to load at runtime. `index.html` rebuilds
 the same one-hot row that `pd.get_dummies(..., drop_first=True)` produced
 during training and computes the prediction in JavaScript. Results are
 numerically identical to scikit-learn's.
@@ -35,8 +40,9 @@ pip install -r requirements.txt
 python train_model.py
 ```
 
-This overwrites `model.js`, `server/model.pkl` and `server/columns.json` so
-the page and the API both reflect the new data.
+This rewrites the `MODEL` block inside `index.html` and overwrites
+`server/model.pkl` and `server/columns.json`, so the page and the API both
+reflect the new data.
 
 ## Deploy to Vercel
 
@@ -45,8 +51,8 @@ the page and the API both reflect the new data.
 3. Framework preset: **Other**. No build command, no output directory.
 4. **Deploy**.
 
-It deploys as a static site — `index.html` and `model.js` are served as-is,
-with no serverless function, no Python runtime and no build step.
+It deploys as a static site — `index.html` is served as-is, with no
+serverless function, no Python runtime and no build step.
 
 > `server/` is deliberately outside `api/` so Vercel does **not** try to build
 > it as a serverless function. Bundling scikit-learn, pandas and numpy comes
