@@ -26,9 +26,10 @@ import os
 
 import joblib
 import pandas as pd
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 
-BASE_DIR = os.path.dirname(__file__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
 MODEL_PATH = os.path.join(BASE_DIR, "model.pkl")
 COLUMNS_PATH = os.path.join(BASE_DIR, "columns.json")
 
@@ -74,6 +75,18 @@ def build_feature_row(payload):
     return pd.DataFrame([[row[col] for col in FEATURE_COLUMNS]], columns=FEATURE_COLUMNS)
 
 
+@app.route("/")
+def index():
+    """Serve the form for local dev, so the page and the API share an origin.
+
+    On Vercel this route is never reached - index.html is served statically
+    from the project root and only /api/predict is routed to this function.
+    """
+    if not os.path.exists(os.path.join(PROJECT_ROOT, "index.html")):
+        return jsonify({"error": "index.html not found next to api/"}), 404
+    return send_from_directory(PROJECT_ROOT, "index.html")
+
+
 @app.route("/api/predict", methods=["POST"])
 def predict():
     payload = request.get_json(silent=True) or {}
@@ -91,6 +104,8 @@ def predict():
     return jsonify({"predicted_price": round(float(prediction), 2)})
 
 
-# Local dev entrypoint: `python api/predict.py` runs this on localhost:5000
+# Local dev entrypoint: `python api/predict.py` serves the form AND the API
+# together on http://127.0.0.1:5000 - open that URL, not the index.html file.
 if __name__ == "__main__":
+    print("Open http://127.0.0.1:5000 in your browser")
     app.run(debug=True)

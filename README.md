@@ -15,15 +15,17 @@ serverless function.
   prediction.
 - `index.html` is a static form that calls `/api/predict` and displays
   the result. Vercel serves it automatically since it's at the project
-  root.
+  root, and `api/predict.py` also serves it at `/` when you run the app
+  locally, so the page and the API always share an origin.
 
 ## Deploy to Vercel
 
 1. Push this folder to a GitHub repo.
 2. Go to [vercel.com](https://vercel.com), sign in with GitHub, click
    **Add New → Project**, and import the repo.
-3. Vercel auto-detects `vercel.json` and the `api/` folder — no build
-   config needed. Click **Deploy**.
+3. Vercel auto-detects `index.html` at the root and `api/predict.py` as a
+   Python serverless function — no `vercel.json` or build config needed.
+   Click **Deploy**.
 4. You'll get a live URL like `your-project.vercel.app`. Open it, fill
    in the form, and get a prediction.
 
@@ -32,15 +34,28 @@ serverless function.
 ```bash
 pip install -r requirements.txt
 python train_model.py          # regenerates api/model.pkl if you change Housing.csv
-python api/predict.py          # starts a local Flask server on :5000
+python api/predict.py          # serves the form AND the API on :5000
 ```
 
-Then open `index.html` in a browser — note that when running locally
-this way, the fetch target in `index.html` (`/api/predict`) expects to
-be served from the same origin, so it works out of the box on Vercel
-but for local-only testing you may prefer `curl` against
-`http://127.0.0.1:5000/api/predict` directly, or use `vercel dev`
-(Vercel's CLI) which replicates the deployed routing locally.
+Then open **http://127.0.0.1:5000** in your browser.
+
+Do not open `index.html` by double-clicking it. The page would load over
+`file://`, where its `fetch('/api/predict')` resolves to
+`file:///api/predict` — there is no server at that address, so the browser
+blocks the request and the form reports **"Failed to fetch"**. Loading the
+page from `http://127.0.0.1:5000` puts it on the same origin as the API,
+which is what the form expects.
+
+To test the API on its own:
+
+```bash
+curl -X POST http://127.0.0.1:5000/api/predict \
+  -H 'Content-Type: application/json' \
+  -d '{"area":7420,"bedrooms":4,"bathrooms":2,"stories":3,"parking":2,
+       "mainroad":"yes","guestroom":"no","basement":"no",
+       "hotwaterheating":"no","airconditioning":"yes","prefarea":"yes",
+       "furnishingstatus":"furnished"}'
+```
 
 ## Retraining
 
