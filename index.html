@@ -118,60 +118,59 @@
 
 <div id="result"></div>
 
+<script src="model.js"></script>
 <script>
 const form = document.getElementById('predict-form');
 const resultBox = document.getElementById('result');
 
-// When the page is served over http (locally or on Vercel) the API is on the
-// same origin, so a relative path is correct. When the file is opened directly
-// the origin is "null" and a relative path would resolve to file:///api/predict,
-// which is not a server - so point at the local dev server instead.
-const OPENED_AS_FILE = location.protocol === 'file:';
-const API_URL = OPENED_AS_FILE
-  ? 'http://127.0.0.1:5000/api/predict'
-  : '/api/predict';
+const NUMERIC = ['area', 'bedrooms', 'bathrooms', 'stories', 'parking'];
+const YES_NO = ['mainroad', 'guestroom', 'basement', 'hotwaterheating',
+                'airconditioning', 'prefarea'];
 
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = form.querySelector('button');
-  btn.disabled = true;
-  btn.textContent = 'Predicting...';
+// Rebuild the one-hot row train_model.py produced with pd.get_dummies(...,
+// drop_first=True): each yes/no field becomes <field>_yes, and furnishing
+// becomes two columns with "furnished" as the dropped baseline (both 0).
+function buildRow(data) {
+  const row = {};
+  MODEL.columns.forEach(c => { row[c] = 0; });
 
-  const data = Object.fromEntries(new FormData(form).entries());
-  ['area', 'bedrooms', 'bathrooms', 'stories', 'parking'].forEach(k => {
-    data[k] = Number(data[k]);
+  NUMERIC.forEach(f => { row[f] = Number(data[f]); });
+  YES_NO.forEach(f => {
+    const col = f + '_yes';
+    if (col in row) row[col] = data[f] === 'yes' ? 1 : 0;
   });
 
-  try {
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    const json = await res.json();
+  const furnishing = data.furnishingstatus;
+  if (furnishing === 'semi-furnished') row['furnishingstatus_semi-furnished'] = 1;
+  else if (furnishing === 'unfurnished') row['furnishingstatus_unfurnished'] = 1;
 
-    if (!res.ok) throw new Error(json.error || 'Prediction failed');
+  return row;
+}
 
-    resultBox.className = 'ok';
-    resultBox.innerHTML = `Predicted Price<br><span class="price">₹${json.predicted_price.toLocaleString()}</span>`;
-  } catch (err) {
+// A linear regression is a dot product, so this matches sklearn exactly.
+function predict(data) {
+  const row = buildRow(data);
+  return MODEL.columns.reduce(
+    (sum, c) => sum + MODEL.coef[c] * row[c],
+    MODEL.intercept
+  );
+}
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(form).entries());
+
+  const missing = NUMERIC.filter(f => !Number.isFinite(Number(data[f])));
+  if (missing.length) {
     resultBox.className = 'err';
-    // fetch() throws TypeError when the request never reached a server at all.
-    // "Failed to fetch" says nothing useful, so explain what to actually do.
-    if (err instanceof TypeError) {
-      resultBox.innerHTML = OPENED_AS_FILE
-        ? 'Could not reach the API at <code>http://127.0.0.1:5000</code>.<br>' +
-          'Start it first: <code>python api/predict.py</code>'
-        : 'Could not reach <code>/api/predict</code> on this origin.<br>' +
-          'If running locally, start the server with <code>python api/predict.py</code> ' +
-          'and open <code>http://127.0.0.1:5000</code>.';
-    } else {
-      resultBox.textContent = err.message;
-    }
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Predict Price';
+    resultBox.textContent = 'Please enter a number for: ' + missing.join(', ');
+    return;
   }
+
+  const price = predict(data);
+  resultBox.className = 'ok';
+  resultBox.innerHTML = 'Predicted Price<br><span class="price">\u20b9' +
+    price.toLocaleString('en-IN', { maximumFractionDigits: 2 }) + '</span>';
 });
 </script>
 
