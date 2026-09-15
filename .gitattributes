@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# The trained model is a binary pickle - never LF-normalize it
+*.pkl binary

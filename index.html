@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>House Price Prediction</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f5f6fa;
+    color: #222;
+    max-width: 560px;
+    margin: 40px auto;
+    padding: 0 20px;
+  }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  p.sub { color: #666; margin-top: 0; margin-bottom: 24px; }
+  form {
+    background: #fff;
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  label { font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px; }
+  input, select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.95rem;
+  }
+  .full { grid-column: 1 / -1; }
+  button {
+    grid-column: 1 / -1;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  button:hover { background: #1d4ed8; }
+  button:disabled { background: #93b4f0; cursor: default; }
+  #result {
+    margin-top: 20px;
+    padding: 16px;
+    border-radius: 8px;
+    display: none;
+  }
+  #result.ok { background: #ecfdf5; border: 1px solid #a7f3d0; display: block; }
+  #result.err { background: #fef2f2; border: 1px solid #fecaca; display: block; }
+  #result .price { font-size: 1.6rem; font-weight: 700; color: #047857; }
+</style>
+</head>
+<body>
+
+<h1>House Price Prediction</h1>
+<p class="sub">Linear Regression model trained on the Housing.csv dataset.</p>
+
+<form id="predict-form">
+  <div>
+    <label>Area (sqft)</label>
+    <input type="number" name="area" value="7420" required>
+  </div>
+  <div>
+    <label>Bedrooms</label>
+    <input type="number" name="bedrooms" value="4" required>
+  </div>
+  <div>
+    <label>Bathrooms</label>
+    <input type="number" name="bathrooms" value="2" required>
+  </div>
+  <div>
+    <label>Stories</label>
+    <input type="number" name="stories" value="3" required>
+  </div>
+  <div>
+    <label>Parking spots</label>
+    <input type="number" name="parking" value="2" required>
+  </div>
+  <div>
+    <label>Furnishing status</label>
+    <select name="furnishingstatus">
+      <option value="furnished">Furnished</option>
+      <option value="semi-furnished">Semi-furnished</option>
+      <option value="unfurnished">Unfurnished</option>
+    </select>
+  </div>
+
+  <div><label>Main road</label>
+    <select name="mainroad"><option value="yes">Yes</option><option value="no">No</option></select>
+  </div>
+  <div><label>Guest room</label>
+    <select name="guestroom"><option value="no">No</option><option value="yes">Yes</option></select>
+  </div>
+  <div><label>Basement</label>
+    <select name="basement"><option value="no">No</option><option value="yes">Yes</option></select>
+  </div>
+  <div><label>Hot water heating</label>
+    <select name="hotwaterheating"><option value="no">No</option><option value="yes">Yes</option></select>
+  </div>
+  <div><label>Air conditioning</label>
+    <select name="airconditioning"><option value="yes">Yes</option><option value="no">No</option></select>
+  </div>
+  <div><label>Preferred area</label>
+    <select name="prefarea"><option value="yes">Yes</option><option value="no">No</option></select>
+  </div>
+
+  <button type="submit" class="full">Predict Price</button>
+</form>
+
+<div id="result"></div>
+
+<script>
+const form = document.getElementById('predict-form');
+const resultBox = document.getElementById('result');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = form.querySelector('button');
+  btn.disabled = true;
+  btn.textContent = 'Predicting...';
+
+  const data = Object.fromEntries(new FormData(form).entries());
+  ['area', 'bedrooms', 'bathrooms', 'stories', 'parking'].forEach(k => {
+    data[k] = Number(data[k]);
+  });
+
+  try {
+    const res = await fetch('/api/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const json = await res.json();
+
+    if (!res.ok) throw new Error(json.error || 'Prediction failed');
+
+    resultBox.className = 'ok';
+    resultBox.innerHTML = `Predicted Price<br><span class="price">₹${json.predicted_price.toLocaleString()}</span>`;
+  } catch (err) {
+    resultBox.className = 'err';
+    resultBox.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Predict Price';
+  }
+});
+</script>
+
+</body>
+</html>
